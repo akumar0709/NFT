@@ -1,18 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
 import "erc721a/contracts/ERC721A.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 
+   
 contract batch is ERC721A, Ownable {
-    uint256 MAX_MINTS = 10;
-    uint256 MAX_SUPPLY = 1000;
+    using Counters for Counters.Counter;
+    Counters.Counter private _tokenIds;
+    using SafeMath for uint256;
+
+    //Max no. of purchase:20
+    uint256 MAX_MINTS = 20; 
+
+    //Total tokens:200
+    uint256 MAX_SUPPLY = 200;
 
     // User has to pay minimum mintRate to mint NFT
-    uint256 public mintRate = 0.001 ether;
+    uint256 public mintRate = 0.02 ether;
 
     //Royality Fess we are gonna set
     uint96 royalityFees;
@@ -31,13 +41,31 @@ contract batch is ERC721A, Ownable {
     
     }
 
-    function mint(uint256 quantity) external payable onlyOwner {                //only owner is able to mint
-        // _safeMint's second argument now takes in a quantity, not a tokenId.
+    function mint(uint256 quantity) external payable {                //only owner is able to mint
+        //Sales start at 5PM of today
+        require(block.timestamp >= 1648141200, "Not yet available");
         require(quantity + _numberMinted(msg.sender) <= MAX_MINTS, "Exceeded the limit");
         require(totalSupply() + quantity <= MAX_SUPPLY, "Not enough tokens left");
         require(msg.value >= (mintRate * quantity), "Not enough ether sent");
+        // _safeMint's second argument now takes in a quantity, not a tokenId.
         _safeMint(msg.sender, quantity);
     }
+
+    // Reserved token function with 30 tokens to be minted by owner only
+    function reserveNFTs() public onlyOwner {
+     uint totalMinted = _tokenIds.current();
+     require(
+        totalMinted.add(30) < MAX_SUPPLY, "Not enough NFTs"
+     );
+     for (uint i = 0; i < 30; i++) {
+          _mintSingleNFT();
+     }
+}
+function _mintSingleNFT() private {
+      uint newTokenID = _tokenIds.current();
+      _safeMint(msg.sender, newTokenID);
+      _tokenIds.increment();
+}
 
     function withdraw() external payable onlyOwner {
         payable(owner()).transfer(address(this).balance);
@@ -55,6 +83,8 @@ contract batch is ERC721A, Ownable {
         _burn(tokenId);
 
     }
+
+    
  /**
      * @dev Returns true if this contract implements the interface defined by
      * `interfaceId`. See the corresponding
@@ -66,7 +96,7 @@ contract batch is ERC721A, Ownable {
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(ERC721, ERC721Enumerable)
+        override(ERC721A)
         returns (bool)
     {
         return interfaceId==0x2a55205a || super.supportsInterface(interfaceId);
